@@ -20,9 +20,15 @@ class SystemMessage(LLMMessage):
 
 @dataclass
 class UserMessage(LLMMessage):
-    def __init__(self, content: str | List[Dict[str, Any]], source: str = "user"):
+    def __init__(
+        self,
+        content: str | List[Dict[str, Any]],
+        source: str = "user",
+        is_original: bool = False,
+    ):
         self.content = content
         self.source = source
+        self.is_original = is_original
 
 
 @dataclass
