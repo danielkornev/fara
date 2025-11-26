@@ -2,6 +2,7 @@ import asyncio
 import atexit
 import logging
 import os
+import platform
 import signal
 import subprocess
 import time
@@ -201,7 +202,7 @@ class BrowserBB:
 
     async def _init_regular_browser(self, channel: str = "chromium") -> None:
         """Initialize regular browser according to the specified channel."""
-        if not self.headless:
+        if not self.headless and platform.system() != "Windows":
             self.start_xvfb()
 
         launch_args: Dict[str, Any] = {"headless": self.headless}
@@ -225,7 +226,7 @@ class BrowserBB:
 
     async def _init_persistent_browser(self) -> None:
         """Initialize persistent browser with data directory."""
-        if not self.headless:
+        if not self.headless and platform.system() != "Windows":
             self.start_xvfb()
 
         launch_args: Dict[str, Any] = {"headless": self.headless}
@@ -349,5 +350,5 @@ class BrowserBB:
             await self.browser.close()
             self.browser = None
 
-        if not self.headless:
+        if not self.headless and platform.system() != "Windows" and self.xvfb_process:
             self.stop_xvfb()
