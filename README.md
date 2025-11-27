@@ -17,6 +17,32 @@
 
 **Fara-7B** is Microsoft's first **agentic small language model (SLM)** designed specifically for computer use. With only 7 billion parameters, Fara-7B is an ultra-compact Computer Use Agent (CUA) that achieves state-of-the-art performance within its size class and is competitive with larger, more resource-intensive agentic systems.
 
+Try Fara-7B locally as follows (see [Installation](##Installation) for detailed instructions):
+
+```bash
+# 1. Clone repository
+git clone https://github.com/microsoft/fara.git
+cd fara
+
+# 2. Setup environment
+python3 -m venv .venv 
+source .venv/bin/activate
+pip install -e .
+playwright install
+```
+
+Then in one process, host the model:
+```bash
+vllm serve "microsoft/Fara-7B" --port 5000 --dtype auto 
+```
+Then you can iterative query it with:
+```bash
+fara-cli --task "whats the weather in new york now"
+```
+
+Hint: might need to do `--tensor-parallel-size 2` with vllm command if you run out of memory
+
+
 ### What Makes Fara-7B Unique
 
 Unlike traditional chat models that generate text-based responses, Fara-7B leverages computer interfaces—mouse and keyboard—to perform multi-step tasks on behalf of users. The model:
@@ -146,7 +172,7 @@ Deploy Fara-7B on [Azure Foundry](https://ai.azure.com/explore/models/Fara-7B/ve
 3. Run the Fara agent:
 
 ```bash
-python test_fara_agent.py --task "how many pages does wikipedia have" --start_page "https://www.bing.com"
+fara-cli --task "how many pages does wikipedia have" --start_page "https://www.bing.com"
 ```
 
 That's it! No GPU or model downloads required.
@@ -155,37 +181,18 @@ That's it! No GPU or model downloads required.
 
 If you have access to GPU resources, you can self-host Fara-7B using VLLM. This requires a GPU machine with sufficient VRAM.
 
-First, download the Fara-7B model weights from HuggingFace using the provided script:
+All that is required is to run the following command to start the VLLM server:
 
 ```bash
-# Install huggingface_hub if not already installed
-pip install -U huggingface_hub
-
-# optional, login to HuggingFace CLI 
-huggingface-cli login
-
-# Download the model (will be saved to model_checkpoints/fara-7b)
-python scripts/download_model.py --output-dir ./model_checkpoints --token YOUR_HF_TOKEN
+vllm serve "microsoft/Fara-7B" --port 5000 --dtype auto 
 ```
-
-The script will download the model to `model_checkpoints/fara-7b/` by default. You can also download manually from [HuggingFace](https://huggingface.co/microsoft/fara-7b).
-
-Second, host the model locally on a GPU machine:
-
-```bash
-cd src/fara/vllm
-python -m pip install -r requirements.txt
-python az_vllm.py --model_url /path/to/model_checkpoints/ --device_id 0,1
-```
-
-This defaults to port 5000. We recommend hosting across multiple devices depending on GPU count and memory: `--device_id 0,1`.
 
 ### Testing the Fara Agent
 
 Run the test script to see Fara in action:
 
 ```bash
-python test_fara_agent.py --task "how many pages does wikipedia have" --start_page "https://www.bing.com" --endpoint_config endpoint_configs/azure_foundry_config.json [--headful] [--downloads_folder "/path/to/downloads"] [--save_screenshots] [--max_rounds 100] [--browserbase]
+fara-cli --task "how many pages does wikipedia have" --start_page "https://www.bing.com" --endpoint_config endpoint_configs/azure_foundry_config.json [--headful] [--downloads_folder "/path/to/downloads"] [--save_screenshots] [--max_rounds 100] [--browserbase]
 ```
 
 In self-hosting scenario the `endpoint_config` points to `endpoint_configs/vllm_config.json` from the VLLM server above.
@@ -195,13 +202,25 @@ If you set `--browserbase`, export environment variables for the API key and pro
 #### Expected Output
 
 ```
-[fara_agent] Wikipedia currently has approximately 64,394,387 pages.
-<tool_call>
-{"name": "computer_use", "arguments": {"action": "terminate", "status": "success"}}
-</tool_call>
+Initializing Browser...
+Browser Running... Starting Fara Agent...
+##########################################
+Task: how many pages does wikipedia have
+##########################################
+Running Fara...
 
-[fara_agent] Wikipedia currently has approximately 64,394,387 pages.
-INFO:__main__:Closing browser...
+
+Thought #1: To find the current number of Wikipedia pages, I'll search for the latest Wikipedia page count statistics.
+Action #1: executing tool 'web_search' with arguments {"action": "web_search", "query": "Wikipedia total number of articles"}
+Observation#1: I typed 'Wikipedia total number of articles' into the browser search bar.
+
+Thought #2: Wikipedia currently has 7,095,446 articles.
+Action #2: executing tool 'terminate' with arguments {"action": "terminate", "status": "success"}
+Observation#2: Wikipedia currently has 7,095,446 articles.
+
+Final Answer: Wikipedia currently has 7,095,446 articles.
+
+Enter another task (or press Enter to exit): 
 ```
 
 ---
@@ -261,10 +280,12 @@ Navigate to the scripts directory:
 cd webeval/scripts
 ```
 
+Make sure you set a valid OpenAI GPT-4o endpoint in `endpoint_configs_gpt4o/dev` in order to run the WebVoyager LLM-as-a-judge! 
+
 **Option 1: Self-hosted VLLM**
 
 ```bash
-python webvoyager.py --model_url ../../model_checkpoints/fara-7b/ --model_port 5000 --eval_oai_config ../endpoint_configs_gpt4o/dev/ --out_url /data/data/Fara/eval --device_id 0,1 --processes 1 --run_id 1 --max_rounds 100
+python webvoyager.py --model_url /path/where/you/want/to/download/model/ --model_port 5000 --eval_oai_config ../endpoint_configs_gpt4o/dev/ --out_url /path/to/save/eval/files --device_id 0,1 --processes 1 --run_id 1 --max_rounds 100
 ```
 
 **Option 2: Azure Foundry Deployment**
@@ -272,14 +293,16 @@ python webvoyager.py --model_url ../../model_checkpoints/fara-7b/ --model_port 5
 Deploy [Fara-7B on Foundry endpoint(s)](https://ai.azure.com/explore/models/Fara-7B/version/2/registry/azureml-msr), then place endpoint URLs and keys in JSONs under `endpoint_configs/`:
 
 ```bash
-python webvoyager.py --model_endpoint ../../endpoint_configs/ --eval_oai_config ../endpoint_configs_gpt4o/dev/ --out_url /data/data/Fara/eval --processes 1 --run_id 1_endpoint --max_rounds 100
+python webvoyager.py --model_endpoint ../../endpoint_configs/ --eval_oai_config ../endpoint_configs_gpt4o/dev/ --out_url /path/to/save/eval/files --processes 1 --run_id 1_endpoint --max_rounds 100
 ```
 
 ### Notes
 
+
 - We use the same LLM-as-a-judge prompts and model (GPT-4o) as WebVoyager, hence the `--eval_oai_config` argument
 - Set `--browserbase` for browser session management (requires exported API key and project ID environment variables)
 - Avoid overloading a single VLLM deployment with more than ~10 concurrent processes due to known issues
+- See debugging output in `fara/webeval/scripts/stdout.txt`
 
 ---
 

@@ -6,7 +6,7 @@ import platform
 import signal
 import subprocess
 import time
-from typing import Any, Dict, List, Optional, Callable
+from typing import Any, Dict, Optional, Callable
 
 import browserbase
 from browserbase import Browserbase
@@ -18,13 +18,6 @@ from playwright.async_api import (
     async_playwright,
 )
 
-from playwright.async_api import (
-    BrowserContext,
-    Download,
-    Page,
-    Playwright,
-    async_playwright,
-)
 from .playwright_controller import PlaywrightController
 
 
@@ -158,7 +151,7 @@ class BrowserBB:
                     region="us-east-1",
                 )
                 break
-            except browserbase.RateLimitError as e:
+            except browserbase.RateLimitError:
                 self.logger.warning(
                     "Rate limit exceeded while trying to create BrowserBase session. Retrying in 10 seconds..."
                 )
